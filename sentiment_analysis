@@ -1,0 +1,52 @@
+import os
+import tweepy as tw
+import pandas as pd
+from textblob import TextBlob
+import requests
+import json
+
+APP_KEY = 'GqqEIjRQAWAdFztL4mnMEBaVo'
+APP_SECRET = 'CHhUU0AA637K3geo9DllzZrCQUqOKi3fJJU4KCxiZr4cWCZxrp'
+ACCESS_TOKEN = '1484263593705041921-e0sChgdl3Q0IeJIT5hXhpFP8cx4eb'
+ACCESS_TOKEN_SECRET = 'UK6rMKnYjbbUnvZF12K2RWDqjks1GTVBeC5hSuDnnaoRc'
+BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAAIlXYQEAAAAAKVq4cfWjJUd%2BaAJN7HzW5%2FiKN3M%3DFfUbWj2WgNFVWaSHOkUcyIJHaddppNFqrEjXhlQ0zLcAYl2Cre'
+
+# 500,000 max queries per month
+# can only get tweets from last week
+def search_twitter(query, tweet_fields, bearer_token = BEARER_TOKEN):
+    headers = {"Authorization": "Bearer {}".format(bearer_token)}
+
+    # change max_results to query more tweets, max 100
+    url = "https://api.twitter.com/2/tweets/search/recent?query={}&{}".format(
+        query, tweet_fields, max_results = 100
+    )
+    response = requests.request("GET", url, headers=headers)
+
+    print(response.status_code)
+
+    if response.status_code != 200:
+        raise Exception(response.status_code, response.text)
+    return response.json()
+
+# returns average sentiment analysis score
+def sentiment_analysis(query):
+    tweet_fields = "tweet.fields=text"
+    json_response = search_twitter(query=query, tweet_fields=tweet_fields, bearer_token=BEARER_TOKEN)
+
+    tweets = []
+    for tweet in json_response['data']:
+        tweets.append(tweet['text'])
+
+    sum = 0
+    for tweet in tweets:
+        blob = TextBlob(tweet)
+
+        # sentiment ranges from [-1, 1], where -1 is negative sentiment and 1 is positive sentiment
+        sentiment = blob.sentiment.polarity
+        sum += sentiment
+
+    avg_sentiment = float(sum) / len(tweets)
+
+    return avg_sentiment
+
+sentiment_analysis('bitcoin')
