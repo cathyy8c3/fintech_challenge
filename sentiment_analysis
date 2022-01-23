@@ -4,6 +4,7 @@ import pandas as pd
 from textblob import TextBlob
 import requests
 import json
+import time
 
 APP_KEY = 'GqqEIjRQAWAdFztL4mnMEBaVo'
 APP_SECRET = 'CHhUU0AA637K3geo9DllzZrCQUqOKi3fJJU4KCxiZr4cWCZxrp'
@@ -13,40 +14,97 @@ BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAAIlXYQEAAAAAKVq4cfWjJUd%2BaAJN7HzW5%2FiKN3M%
 
 # 500,000 max queries per month
 # can only get tweets from last week
-def search_twitter(query, tweet_fields, bearer_token = BEARER_TOKEN):
+def search_twitter(query, tweet_fields, bearer_token = BEARER_TOKEN, max_results = 0):
     headers = {"Authorization": "Bearer {}".format(bearer_token)}
 
     # change max_results to query more tweets, max 100
     url = "https://api.twitter.com/2/tweets/search/recent?query={}&{}".format(
-        query, tweet_fields, max_results = 100
+        query, tweet_fields, max_results = max_results
     )
     response = requests.request("GET", url, headers=headers)
-
-    print(response.status_code)
 
     if response.status_code != 200:
         raise Exception(response.status_code, response.text)
     return response.json()
 
+# keyword = word we are searching for
+# since_date = date of oldest comment or post
+# num = number of results in response
+def search_reddit(keyword, since_date, num = 500):
+    url = "https://api.pushshift.io/reddit"
+    query_posts = {'title': keyword, 'after': since_date, 'size': num, 'score': '>=10'}
+    query_comments = {'q': keyword, 'after': since_date, 'size': num}
+
+    posts = requests.get(url + "/search/comment", params = query_posts)
+    comments = requests.get(url + "/search/submission", params = query_comments)
+
+    if posts.status_code != 200:
+        raise Exception(posts.status_code, posts.text)
+    if comments.status_code != 200:
+        raise Exception(comments.status_code, comments.text)
+
+    return posts.json(), comments.json()
+
 # returns average sentiment analysis score
-def sentiment_analysis(query):
+# since_date only applies to reddit
+# default since_date is set to a week back
+# since_date = int + "s,m,h, or d"
+def sentiment_analysis(query, since_date = '7d'):
     tweet_fields = "tweet.fields=text"
-    json_response = search_twitter(query=query, tweet_fields=tweet_fields, bearer_token=BEARER_TOKEN)
+    twitter = search_twitter(query=query, tweet_fields=tweet_fields, bearer_token=BEARER_TOKEN, max_results=0)
+    reddit_posts, reddit_comments = search_reddit(query, since_date)
 
     tweets = []
-    for tweet in json_response['data']:
+    for tweet in twitter['data']:
+        try:
+            tweet['text']
+        except:
+            continue
         tweets.append(tweet['text'])
 
-    sum = 0
+    r_posts = []
+    for post in reddit_posts['data']:
+        try:
+            post['body']
+        except:
+            continue
+        r_posts.append(post['body'])   # only analyzing sentiment of title
+
+    r_comments = []
+    for comment in reddit_comments['data']:
+        try:
+            comment['body']
+        except:
+            continue
+        r_comments.append(comment['body'])
+
+    # sentiment ranges from [-1, 1], where -1 is negative sentiment and 1 is positive sentiment
+    sum_twitter = 0
     for tweet in tweets:
         blob = TextBlob(tweet)
-
-        # sentiment ranges from [-1, 1], where -1 is negative sentiment and 1 is positive sentiment
         sentiment = blob.sentiment.polarity
-        sum += sentiment
+        sum_twitter += sentiment
+    try:
+        avg_twitter_sentiment = float(sum_twitter) / len(tweets)
+    except:
+        avg_twitter_sentiment = 0
 
-    avg_sentiment = float(sum) / len(tweets)
+    sum_reddit = 0
+    for post in r_posts:
+        blob = TextBlob(post)
+        sentiment = blob.sentiment.polarity
+        sum_reddit += sentiment
+    for comment in r_comments:
+        blob = TextBlob(comment)
+        sentiment = blob.sentiment.polarity
+        sum_reddit += sentiment
 
-    return avg_sentiment
+    try:
+        avg_reddit_sentiment = float(sum_reddit) / (len(r_posts) + len(r_comments))
+    except:
+        avg_reddit_sentiment = 0
 
+    return avg_twitter_sentiment, avg_reddit_sentiment
+
+# example sentiment analysis on bitcoin
 sentiment_analysis('bitcoin')
