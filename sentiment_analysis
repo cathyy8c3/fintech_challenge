@@ -14,6 +14,7 @@ BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAAIlXYQEAAAAAKVq4cfWjJUd%2BaAJN7HzW5%2FiKN3M%
 
 # 500,000 max queries per month
 # can only get tweets from last week
+# max_results = number of tweets to get (max val 100)
 def search_twitter(query, tweet_fields, bearer_token = BEARER_TOKEN, max_results = 0):
     headers = {"Authorization": "Bearer {}".format(bearer_token)}
 
@@ -21,6 +22,7 @@ def search_twitter(query, tweet_fields, bearer_token = BEARER_TOKEN, max_results
     url = "https://api.twitter.com/2/tweets/search/recent?query={}&{}".format(
         query, tweet_fields, max_results = max_results
     )
+    print(url)
     response = requests.request("GET", url, headers=headers)
 
     if response.status_code != 200:
@@ -32,11 +34,12 @@ def search_twitter(query, tweet_fields, bearer_token = BEARER_TOKEN, max_results
 # num = number of results in response
 def search_reddit(keyword, since_date, num = 500):
     url = "https://api.pushshift.io/reddit"
-    query_posts = {'title': keyword, 'after': since_date, 'size': num, 'score': '>=10'}
+
+    query_posts = {'title': keyword, 'after': since_date, 'size': num, 'score': '>10'}
     query_comments = {'q': keyword, 'after': since_date, 'size': num}
 
-    posts = requests.get(url + "/search/comment", params = query_posts)
-    comments = requests.get(url + "/search/submission", params = query_comments)
+    posts = requests.get(url + "/search/submission/?q:not=bot" + "&title=" + keyword + "&size=500" + "&subreddit=wallstreetbets,CryptoCurrency" + "&after=" + since_date + "&score=>0")
+    comments = requests.get(url + "/search/comment/?q=" + keyword + "&size=500" + "&subreddit=wallstreetbets,CryptoCurrency" + "&after=" + since_date)
 
     if posts.status_code != 200:
         raise Exception(posts.status_code, posts.text)
@@ -46,14 +49,17 @@ def search_reddit(keyword, since_date, num = 500):
     return posts.json(), comments.json()
 
 # returns average sentiment analysis score
+# query = keyword that is searched for; separate words with commas
 # since_date only applies to reddit
 # default since_date is set to a week back
-# since_date = int + "s,m,h, or d"
+# since_date = int + "s,m,h, or d" (ex: '7d' = returns tweets after 7 days ago)
 def sentiment_analysis(query, since_date = '7d'):
-    tweet_fields = "tweet.fields=text"
+    tweet_fields = "tweet.fields=text,created_at"
     twitter = search_twitter(query=query, tweet_fields=tweet_fields, bearer_token=BEARER_TOKEN, max_results=0)
+    #twitter = {'data': []}
     reddit_posts, reddit_comments = search_reddit(query, since_date)
 
+    twitter_timestamps = []
     tweets = []
     for tweet in twitter['data']:
         try:
@@ -61,15 +67,19 @@ def sentiment_analysis(query, since_date = '7d'):
         except:
             continue
         tweets.append(tweet['text'])
+        twitter_timestamps.append(tweet['created_at'])
 
+    reddit_timestamps_posts = []
     r_posts = []
     for post in reddit_posts['data']:
         try:
-            post['body']
+            post['selftext']
         except:
             continue
-        r_posts.append(post['body'])   # only analyzing sentiment of title
+        r_posts.append(post['selftext'])   # only analyzing sentiment of title
+        reddit_timestamps_posts.append(post['created_utc'])
 
+    reddit_timestamps_comments = []
     r_comments = []
     for comment in reddit_comments['data']:
         try:
@@ -77,6 +87,7 @@ def sentiment_analysis(query, since_date = '7d'):
         except:
             continue
         r_comments.append(comment['body'])
+        reddit_timestamps_comments.append(comment['created_utc'])
 
     # sentiment ranges from [-1, 1], where -1 is negative sentiment and 1 is positive sentiment
     sum_twitter = 0
@@ -104,7 +115,13 @@ def sentiment_analysis(query, since_date = '7d'):
     except:
         avg_reddit_sentiment = 0
 
-    return avg_twitter_sentiment, avg_reddit_sentiment
+    return avg_twitter_sentiment, avg_reddit_sentiment, tweets, r_posts, r_comments, reddit_timestamps_posts, twitter_timestamps, reddit_timestamps_comments
 
-# example sentiment analysis on bitcoin
-sentiment_analysis('bitcoin')
+#sentiment_analysis('bitcoin')
+
+# adds crypto data to dataframe
+# query = keywords searched for
+# since_date only applies to reddit
+# since_date = int + "s,m,h, or d" (ex: '7d' = returns tweets after 7 days ago)
+def add_crypto(df, query, since_date = '7d'):
+    avg_twitter_sentiment, avg_reddit_sentiment, tweets, r_posts, r_comments, reddit_timestamps_posts, twitter_timestamps, reddit_timestamps_comments = sentiment_analysis()
