@@ -22,7 +22,6 @@ def search_twitter(query, tweet_fields, bearer_token = BEARER_TOKEN, max_results
     url = "https://api.twitter.com/2/tweets/search/recent?query={}&{}".format(
         query, tweet_fields, max_results = max_results
     )
-    print(url)
     response = requests.request("GET", url, headers=headers)
 
     if response.status_code != 200:
@@ -55,7 +54,7 @@ def search_reddit(keyword, since_date, num = 500):
 # since_date = int + "s,m,h, or d" (ex: '7d' = returns tweets after 7 days ago)
 def sentiment_analysis(query, since_date = '7d'):
     tweet_fields = "tweet.fields=text,created_at"
-    twitter = search_twitter(query=query, tweet_fields=tweet_fields, bearer_token=BEARER_TOKEN, max_results=0)
+    twitter = search_twitter(query=query, tweet_fields=tweet_fields, bearer_token=BEARER_TOKEN, max_results=100)
     #twitter = {'data': []}
     reddit_posts, reddit_comments = search_reddit(query, since_date)
 
@@ -115,13 +114,53 @@ def sentiment_analysis(query, since_date = '7d'):
     except:
         avg_reddit_sentiment = 0
 
-    return avg_twitter_sentiment, avg_reddit_sentiment, tweets, r_posts, r_comments, reddit_timestamps_posts, twitter_timestamps, reddit_timestamps_comments
-
-#sentiment_analysis('bitcoin')
+    return avg_twitter_sentiment, avg_reddit_sentiment, tweets, r_posts, r_comments, twitter_timestamps, reddit_timestamps_posts, reddit_timestamps_comments
 
 # adds crypto data to dataframe
 # query = keywords searched for
 # since_date only applies to reddit
 # since_date = int + "s,m,h, or d" (ex: '7d' = returns tweets after 7 days ago)
-def add_crypto(df, query, since_date = '7d'):
-    avg_twitter_sentiment, avg_reddit_sentiment, tweets, r_posts, r_comments, reddit_timestamps_posts, twitter_timestamps, reddit_timestamps_comments = sentiment_analysis()
+def add_crypto(df_twitter, df_reddit, query, since_date = '7d'):
+    avg_twitter_sentiment, avg_reddit_sentiment, tweets, r_posts, r_comments, twitter_timestamps, reddit_timestamps_posts, reddit_timestamps_comments = sentiment_analysis(query, since_date = since_date)
+
+    # list of each tweet with timestamp
+    tweets_timestamps = []
+    for i in range(len(tweets)):
+        tweets_timestamps.append([tweets[i], twitter_timestamps[i]])
+
+    # list of each reddit post with timestamp
+    r_posts_timestamps = []
+    for i in range(len(r_posts)):
+        r_posts_timestamps.append([r_posts[i], reddit_timestamps_posts[i]])
+
+    # list of each reddit comment with timestamp
+    r_comments_timestamps = []
+    for i in range(len(r_comments)):
+        r_comments_timestamps.append([r_comments[i], reddit_timestamps_comments[i]])
+
+    reddit_combined = r_posts_timestamps + r_comments_timestamps
+
+    df_twitter.loc[query] = pd.Series({'Average Sentiment': avg_twitter_sentiment, 'Tweet': tweets_timestamps})
+    df_reddit.loc[query + '_' + since_date] = pd.Series({'Average Sentiment': avg_reddit_sentiment, 'Posts / Comments': reddit_combined})
+
+
+df_twitter = pd.DataFrame(columns = ['Average Sentiment', 'Tweet'])
+df_reddit = pd.DataFrame(columns = ['Average Sentiment', 'Posts / Comments'])
+
+crypts = ['BTC', 'ETH', 'BNB', 'USDT', 'SOL', 'USDC', 'ADA', 'XRP', 'LUNA', 'DOT', 'AVAX', 'DOGE']
+
+for crypt in crypts:
+    add_crypto(df_twitter, df_reddit, crypt, '24h')
+    add_crypto(df_twitter, df_reddit, crypt, '7d')
+    add_crypto(df_twitter, df_reddit, crypt, '365d')
+
+df_twitter.to_csv('data/twitter_sentiment.csv')
+df_reddit.to_csv('data/reddit_sentiment.csv')
+
+print(df_twitter)
+
+print()
+print('________________________________________________________')
+print()
+
+print(df_reddit)
