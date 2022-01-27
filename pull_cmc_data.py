@@ -77,11 +77,15 @@ class Stats:
         period = datetime.timedelta(days = tp)
         fetch_price = self.price(self.today() - period)
         return str((float(self.price())/float(fetch_price) -1)*100)+'%'
+
+        #include 1 2 3 6 12 month interval
+    def spread(self):
+        #access from cmc
     def approval_status(self):
         return status
 
 def get_slug_from_id(coin_id):
-    return (name, slug, id)
+    return ('bicoin', '1', '1')
 
 def post_to_db(coin_id):
     coin = Stats(*get_slug_from_id(coin_id))
@@ -90,3 +94,12 @@ def post_to_db(coin_id):
     conn.commit()
     print("Pushed To Dataframe....................")
     conn.close()
+
+post_to_db('1')
+
+
+#write script to source backdata (interspersed between present calls)
+
+#or use another computer
+
+#request cmc backfill (daily resolution) (5 year)
