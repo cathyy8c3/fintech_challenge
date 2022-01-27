@@ -17,6 +17,8 @@ def ReadFile(name):
     dummy = dummy.resample('1D').mean()
     return dummy
 
+    #replace with db access script (see pull_cmc_data)
+
 ### Function to aggregate the closing price for all the cryptos and making a equally weighted index.
 
 def MergeAll(col, filelist):
