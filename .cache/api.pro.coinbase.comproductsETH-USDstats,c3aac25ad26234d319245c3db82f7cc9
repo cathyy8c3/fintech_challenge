@@ -1,0 +1,28 @@
+status: 200
+date: Wed, 12 Jan 2022 04:40:23 GMT
+content-type: application/json; charset=utf-8
+connection: keep-alive
+access-control-allow-headers: Content-Type, Accept, cb-session, cb-fp, cb-form-factor
+access-control-allow-methods: GET,POST,DELETE,PUT
+access-control-allow-origin: *
+access-control-expose-headers: cb-before, cb-after, cb-gdpr
+access-control-max-age: 7200
+cache-control: public, max-age=5, must-revalidate
+etag: W/"81-hUqVcYlVi+VQN5TirDYgc4GZl64"
+strict-transport-security: max-age=15552000; includeSubDomains
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-xss-protection: 1; mode=block
+cf-cache-status: HIT
+expect-ct: max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi/beacon/expect-ct"
+vary: Accept-Encoding
+server: cloudflare
+cf-ray: 6cc3b4d9df13306b-BOS
+content-length: 129
+-content-encoding: gzip
+content-location: https://api.pro.coinbase.com/products/ETH-USD/stats
+-varied-accept-encoding: gzip, deflate
+
+{"open":"3119.56","high":"3265.98","low":"3075.37","volume":"153688.50342294","last":"3225.92","volume_30day":"4904694.42244548"}

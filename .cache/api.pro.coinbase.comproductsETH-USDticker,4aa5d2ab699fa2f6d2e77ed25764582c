@@ -1,0 +1,28 @@
+status: 200
+date: Wed, 12 Jan 2022 04:40:23 GMT
+content-type: application/json; charset=utf-8
+connection: keep-alive
+access-control-allow-headers: Content-Type, Accept, cb-session, cb-fp, cb-form-factor
+access-control-allow-methods: GET,POST,DELETE,PUT
+access-control-allow-origin: *
+access-control-expose-headers: cb-before, cb-after, cb-gdpr
+access-control-max-age: 7200
+cache-control: public, max-age=1, must-revalidate
+etag: W/"9b-1dcGpTFhhUJ0fTbX/ZA6YxmYI58"
+strict-transport-security: max-age=15552000; includeSubDomains
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-xss-protection: 1; mode=block
+cf-cache-status: EXPIRED
+expect-ct: max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi/beacon/expect-ct"
+vary: Accept-Encoding
+server: cloudflare
+cf-ray: 6cc3b4db282d306b-BOS
+content-length: 155
+-content-encoding: gzip
+content-location: https://api.pro.coinbase.com/products/ETH-USD/ticker
+-varied-accept-encoding: gzip, deflate
+
+{"trade_id":205644225,"price":"3227.19","size":"0.0296574","time":"2022-01-12T04:40:23.163283Z","bid":"3226.75","ask":"3226.76","volume":"153688.50342294"}
