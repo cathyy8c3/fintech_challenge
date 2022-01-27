@@ -81,7 +81,7 @@ class Stats:
         return status
 
 def get_slug_from_id(coin_id):
-    return (name, slug, id)
+    return ('bicoin', '1', '1')
 
 def post_to_db(coin_id):
     coin = Stats(*get_slug_from_id(coin_id))
@@ -90,3 +90,5 @@ def post_to_db(coin_id):
     conn.commit()
     print("Pushed To Dataframe....................")
     conn.close()
+
+post_to_db('1')
