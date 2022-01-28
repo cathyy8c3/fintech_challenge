@@ -5,12 +5,20 @@ from textblob import TextBlob
 import requests
 import json
 import time
+import psycopg2
+from datetime import datetime
+import time
 
 APP_KEY = 'GqqEIjRQAWAdFztL4mnMEBaVo'
 APP_SECRET = 'CHhUU0AA637K3geo9DllzZrCQUqOKi3fJJU4KCxiZr4cWCZxrp'
 ACCESS_TOKEN = '1484263593705041921-e0sChgdl3Q0IeJIT5hXhpFP8cx4eb'
 ACCESS_TOKEN_SECRET = 'UK6rMKnYjbbUnvZF12K2RWDqjks1GTVBeC5hSuDnnaoRc'
 BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAAIlXYQEAAAAAKVq4cfWjJUd%2BaAJN7HzW5%2FiKN3M%3DFfUbWj2WgNFVWaSHOkUcyIJHaddppNFqrEjXhlQ0zLcAYl2Cre'
+
+def timestamp_to_utc(timestamp):
+    TIME_FORMAT='%Y-%m-%d %H:%M:%S'
+    d = datetime.fromtimestamp(timestamp).strftime(TIME_FORMAT)
+    return d
 
 # 500,000 max queries per month
 # can only get tweets from last week
@@ -82,7 +90,7 @@ def sentiment_analysis(query, df_twitter, df_reddit, since_date = '7d'):
         except:
             continue
         r_posts.append(post['selftext'])   # only analyzing sentiment of title
-        reddit_timestamps_posts.append(post['created_utc'])
+        reddit_timestamps_posts.append(timestamp_to_utc(post['created_utc']))
 
     for i in range(len(r_posts)):
         blob = TextBlob(r_posts[i])
@@ -98,7 +106,7 @@ def sentiment_analysis(query, df_twitter, df_reddit, since_date = '7d'):
         except:
             continue
         r_comments.append(comment['body'])
-        reddit_timestamps_comments.append(comment['created_utc'])
+        reddit_timestamps_comments.append(timestamp_to_utc(comment['created_utc']))
 
     for i in range(len(r_comments)):
         blob = TextBlob(r_comments[i])
@@ -161,27 +169,62 @@ def add_crypto(df_twitter, df_reddit, query, since_date = '7d'):
     df_twitter.loc[query] = pd.Series({'Average Sentiment': avg_twitter_sentiment, 'Tweet': tweets_timestamps})
     df_reddit.loc[query + '_' + since_date] = pd.Series({'Average Sentiment': avg_reddit_sentiment, 'Posts / Comments': reddit_combined})
 
+conn = psycopg2.connect(
+    database="tsdb",
+    user="tsdbadmin",
+    password="s076ypajb1f2sx6z",
+    host="sjlvg6tey5.y7ed71zc7s.tsdb.cloud.timescale.com",
+    port="39863"
+)
+
+conn.autocommit = True
+cursor = conn.cursor()
 
 df_twitter = pd.DataFrame(columns = ['Ticker', 'Timestamp', 'Sentiment'])
 df_reddit = pd.DataFrame(columns = ['Ticker', 'Timestamp', 'Sentiment'])
 
 crypts = ['BTC', 'ETH', 'BNB', 'USDT', 'SOL', 'USDC', 'ADA', 'XRP', 'LUNA', 'DOT', 'AVAX', 'DOGE']
 
-for crypt in crypts:
+df_twitter.sort_values('Timestamp')
+df_reddit.sort_values('Timestamp')
+
+def post_to_db(crypt, df_twitter, df_reddit):
     sentiment_analysis(crypt, df_twitter, df_reddit, '24h')
     sentiment_analysis(crypt, df_twitter, df_reddit, '7d')
     sentiment_analysis(crypt, df_twitter, df_reddit, '365d')
 
-df_twitter.sort_values('Timestamp')
-df_reddit.sort_values('Timestamp')
+    for index, row in df_twitter.iterrows():
+        source = 'T'
+        ticker = row['Ticker']
+        text = index
+        timestamp = row['Timestamp']
+        sentiment = row['Sentiment']
 
-df_twitter.to_csv('data/twitter_sentiment.csv')
-df_reddit.to_csv('data/reddit_sentiment.csv')
+        print(timestamp, ticker, text, sentiment, source)
+        try:
+            cursor.execute('''SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE''')
+            cursor.execute('''INSERT INTO sentiments(timestamp, ticker, text, sentiment, source) VALUES(%s, %s, %s, %s, %s)''', (str(timestamp), str(ticker), str(text), sentiment, str(source),))
+        except:
+            continue
 
-print(df_twitter)
+    for index, row in df_reddit.iterrows():
+        source = 'R'
+        ticker = row['Ticker']
+        text = index
+        timestamp = row['Timestamp']
+        sentiment = row['Sentiment']
 
-print()
-print('________________________________________________________')
-print()
+        print(timestamp, ticker, text, sentiment, source)
 
-print(df_reddit)
+        try:
+            cursor.execute('''SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE''')
+            cursor.execute('''INSERT INTO sentiments(timestamp, ticker, text, sentiment, source) VALUES(%s, %s, %s, %s, %s)''', (str(timestamp), str(ticker), str(text), sentiment, str(source),))
+        except:
+            continue
+
+for crypt in crypts:
+    post_to_db(crypt, df_twitter, df_reddit)
+
+conn.commit()
+print("Pushed To Dataframe...")
+conn.close()
